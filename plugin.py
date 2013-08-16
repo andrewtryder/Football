@@ -55,13 +55,13 @@ class Football(callbacks.Plugin):
         def checkfootballcron():
             self.checkfootball(irc)
         try:
-            schedule.addPeriodicEvent(checkfootballcron, 45, now=False, name='checkfootball')
+            schedule.addPeriodicEvent(checkfootballcron, 30, now=False, name='checkfootball')
         except AssertionError:
             try:
                 schedule.removeEvent('checkfootball')
             except KeyError:
                 pass
-            schedule.addPeriodicEvent(checkfootballcron, 45, now=False, name='checkfootball')
+            schedule.addPeriodicEvent(checkfootballcron, 30, now=False, name='checkfootball')
 
     def die(self):
         try:
@@ -222,7 +222,20 @@ class Football(callbacks.Plugin):
                 lastid = str(sc[-1])  # grab the last (-1) event from sorted scoring summary items (in str, base is int)
                 lastev = scrsummary[lastid]  # grab last item from sorted list and grab that entry.
                 lastev['id'] = lastid  # inject the id into the dict returned (str)
-                return lastev  # return the dict.
+                # now lets check some text before we add or return. type = str, desc = text.
+                if lastev['type'] == "TD":  # we wait for the XPA/2PA (pass/fail)
+                    #vdesc = ['kick blocked', 'kick is good', 'run failed', 'run)']
+                    # 1pt fail - G.Tate 11 yd. pass from R.Wilson (kick blocked) Drive: 12 plays, 80 yards in 4:41
+                    # 1pt good - A.Peterson 4 yd. run (B.Walsh kick is good) Drive: 11 plays, 80 yards in 6:29
+                    # 2pt good - K.Rudolph 20 yd. pass from C.Ponder (A.Peterson run) Drive: 8 plays, 62 yards in 3:40
+                    # 2pt bad - M.Harris 19 yd. return of blocked punt (pass failed)
+                    if (('(' in lastev['desc']) and (')' in lastev['desc'])):  # check for ( and )
+                        return lastev  # now we can return the dict.
+                    else:  # don't return anything yet.
+                        self.log.info("_scoreevent: I did not return because the scev string on {0} is {1}".format(gid, lastev['desc']))
+                        return None
+                else:  # non TD event so return regardless.
+                    return lastev  # returns dict.
             else:  # no scoring events.
                 return None
         except Exception, e:
@@ -437,23 +450,32 @@ class Football(callbacks.Plugin):
                     # make sure game is in scoredict like if/when we reload.
                     if k not in self.scoredict:
                         self.scoredict[k] = {}
-                    ## SCORING EVENTS HANDLER CODE.
-                    #mstr = "{0} :: {1}({2}) :: {3} ({4} {5})".format(l, scev['team'], scev['type'], scev['desc'], ordinal, games2[k]['k'])
+                    ## SCORING EVENT.
                     scev = self._scoreevent(k)
-                    if scev:  # we got a scoring event back.
+                    if scev:
                         if scev['id'] not in self.scoredict[k]:  # event is unique.
                             self.log.info("Should fire scoring event in {0}".format(k))
-                            ev = "{0}({1}) :: {2}".format(scev['team'], scev['type'], scev['desc'])
-                            self.scoredict[k] = scev['id']  # add ev key to scoredict so we don't repeat.
-                            self.scoreprint[k] = ev  # add to the scoreprint so we print it upon next run.
+                            l = self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'])  # bold leader
+                            ordinal = utils.str.ordinal(str(games2[k]['q']))  # ordinal for time/quarter.
+                            mstr = "{0} :: {1}({2}) :: {3} ({4} {5})".format(l, scev['team'], scev['type'], scev['desc'], ordinal, games2[k]['k'])
+                            self._post(irc, mstr)  # now post event.
+                            # now add it to the dict.
+                            self.scoredict[k] = scev['id']  # we add the event so we don't add again.
+                    # OLD STUFF.
+                    #if scev:  # we got a scoring event back.
+                    #    if scev['id'] not in self.scoredict[k]:  # event is unique.
+                    #        self.log.info("Should fire scoring event in {0}".format(k))
+                    #        ev = "{0}({1}) :: {2}".format(scev['team'], scev['type'], scev['desc'])
+                    #        self.scoredict[k] = scev['id']  # add ev key to scoredict so we don't repeat.
+                    #        self.scoreprint[k] = ev  # add to the scoreprint so we print it upon next run.
                     # now lets check if any events are in scoreprint.
-                    if k in self.scoreprint:  # an event is in the dict to print.
-                        ev = self.scoreprint[k]  # copy the event to ev from self.scoreprint.
-                        del self.scoreprint[k]  # delete it.
-                        l = self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'])  # bold leader
-                        ordinal = utils.str.ordinal(str(games2[k]['q']))  # ordinal for time/quarter.
-                        mstr = "{0} :: {1} :: ({2} {3})".format(l, ev, ordinal, games2[k]['k'])
-                        self._post(irc, mstr)  # now post event.
+                    #if k in self.scoreprint:  # an event is in the dict to print.
+                    #    ev = self.scoreprint[k]  # copy the event to ev from self.scoreprint.
+                    #    del self.scoreprint[k]  # delete it.
+                    #    l = self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'])  # bold leader
+                    #    ordinal = utils.str.ordinal(str(games2[k]['q']))  # ordinal for time/quarter.
+                    #    mstr = "{0} :: {1} :: ({2} {3})".format(l, ev, ordinal, games2[k]['k'])
+                    #    self._post(irc, mstr)  # now post event.
                     # TEAM ENTERS REDZONE
                     if ((v['rz'] == "0") and (games2[k]['rz'] == "1")):
                         self.log.info("Should fire redzone event.")
@@ -464,7 +486,7 @@ class Football(callbacks.Plugin):
                             self._post(irc, mstr)  # now post event.
                     # 2 MINUTE WARNING.
                     if ((games2[k]['q'] in ("2", "4")) and (self._gctosec(v['k']) > 120) and (self._gctosec(games2[k]['k']) <= 120)):
-                        self.log.info("should fire 2 minute warning.")
+                        self.log.info("should fire 2 minute warning: q: {0} v['k'] {1} games2[k] {2}".format(games2[k], v['k'], games2[k]['k']))
                         l = self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'])
                         ordinal = utils.str.ordinal(str(games2[k]['q']))
                         mstr = "{0} :: {1} ({2} qtr. {3})".format(l, ircutils.bold("2 minute warning."), ordinal, games2[k]['k'])
