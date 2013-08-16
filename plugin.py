@@ -44,6 +44,7 @@ class Football(callbacks.Plugin):
         self.games = None
         self.nextcheck = None
         self.scoredict = {}  # for scoring events.
+        self.scoreprint = {}  # print dict.
         # now do our initial run.
         if not self.games:
             self.games = self._fetchgames()
@@ -54,13 +55,13 @@ class Football(callbacks.Plugin):
         def checkfootballcron():
             self.checkfootball(irc)
         try:
-            schedule.addPeriodicEvent(checkfootballcron, 30, now=False, name='checkfootball')
+            schedule.addPeriodicEvent(checkfootballcron, 45, now=False, name='checkfootball')
         except AssertionError:
             try:
                 schedule.removeEvent('checkfootball')
             except KeyError:
                 pass
-            schedule.addPeriodicEvent(checkfootballcron, 30, now=False, name='checkfootball')
+            schedule.addPeriodicEvent(checkfootballcron, 45, now=False, name='checkfootball')
 
     def die(self):
         try:
@@ -436,34 +437,55 @@ class Football(callbacks.Plugin):
                     # make sure game is in scoredict like if/when we reload.
                     if k not in self.scoredict:
                         self.scoredict[k] = {}
-                    ## CHECK FOR SCORING EVENTS.
-                    # if ((int(games2[k]['hs']) > int(v['hs'])) or (int(games2[k]['vs']) > int(v['vs']))):
+                    ## SCORING EVENTS HANDLER CODE.
+                    #mstr = "{0} :: {1}({2}) :: {3} ({4} {5})".format(l, scev['team'], scev['type'], scev['desc'], ordinal, games2[k]['k'])
                     scev = self._scoreevent(k)
                     if scev:  # we got a scoring event back.
-                        if scev['id'] not in self.scoredict[k]:  # event is unique
-                            self.log.info("Should fire scoring event")
-                            mstr = "{0} :: {1} :: {2}".format(self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs']), scev['team'], scev['desc'])
-                            self._post(irc, mstr)  # now post event.
+                        if scev['id'] not in self.scoredict[k]:  # event is unique.
+                            self.log.info("Should fire scoring event in {0}".format(k))
+                            ev = "{0}({1}) :: {2}".format(scev['team'], scev['type'], scev['desc'])
                             self.scoredict[k] = scev['id']  # add ev key to scoredict so we don't repeat.
-                        # DEBUGGING CODE BELOW.
-                        else:
-                            self.log.info("{0} is already in self.scoredict[{1}]".format(scev['id'], k))
+                            self.scoreprint[k] = ev  # add to the scoreprint so we print it upon next run.
+                    # now lets check if any events are in scoreprint.
+                    if k in self.scoreprint:  # an event is in the dict to print.
+                        ev = self.scoreprint[k]  # copy the event to ev from self.scoreprint.
+                        del self.scoreprint[k]  # delete it.
+                        l = self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'])  # bold leader
+                        ordinal = utils.str.ordinal(str(games2[k]['q']))  # ordinal for time/quarter.
+                        mstr = "{0} :: {1} :: ({2} {3})".format(l, ev, ordinal, games2[k]['k'])
+                        self._post(irc, mstr)  # now post event.
                     # TEAM ENTERS REDZONE
-                    elif ((v['rz'] == "0") and (games2[k]['rz'] == "1")):
+                    if ((v['rz'] == "0") and (games2[k]['rz'] == "1")):
                         self.log.info("Should fire redzone event.")
                         # must have pos team. we do this as a sanity check because w/o the team it's pointless.
                         if 'p' in games2[k]:
-                            mstr = "{0} :: {1} is in the {2}.".format(self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs']), ircutils.bold(games2[k]['p']), ircutils.mircColor('redzone', 'red'))
+                            l = self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'])
+                            mstr = "{0} :: {1} is in the {2}.".format(l, ircutils.bold(games2[k]['p']), ircutils.mircColor('redzone', 'red'))
                             self._post(irc, mstr)  # now post event.
                     # 2 MINUTE WARNING.
-                    elif ((games2[k]['q'] in ("2", "4")) and (self._gctosec(v['k']) > 120) and (self._gctosec(games2[k]['k']) <= 120)):
+                    if ((games2[k]['q'] in ("2", "4")) and (self._gctosec(v['k']) > 120) and (self._gctosec(games2[k]['k']) <= 120)):
                         self.log.info("should fire 2 minute warning.")
-                        mstr = "{0} :: {1}".format(self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs']), ircutils.bold("2 minute warning."))
+                        l = self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'])
+                        ordinal = utils.str.ordinal(str(games2[k]['q']))
+                        mstr = "{0} :: {1} ({2} qtr. {3})".format(l, ircutils.bold("2 minute warning."), ordinal, games2[k]['k'])
                         self._post(irc, mstr)  # now post event.
-                # NEXT, HANDLE STATUS CHANGES.
+                    # START OF 2ND/4TH QUARTER.
+                    if (((v['q'] == "1") and (games2[k]['q'] == "2")) or ((v['q'] == "3") and (games2[k]['q'] == "4"))):
+                        self.log.info("Should fire start of 2nd or 4th qtr.")
+                        l = self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'])
+                        q = "Start of {0} quarter".format(utils.str.ordinal(str(games2[k]['q'])))
+                        mstr = "{0} :: {1}".format(l, ircutils.mircColor(q, 'green'))
+                        self._post(irc, mstr)  # now post event.
+                    # GAME GOES INTO OVERTIME.
+                    if ((v['q'] == "4") and (games2[k]['q'] == "5")):
+                        self.log.info("Should fire overtime.")
+                        mstr = "{0} {1} {2} {3} :: {4}".format(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'], ircutils.bold("Overtime"))
+                        self._post(irc, mstr)  # now post event.
+                # EVENTS THAT SHOULD ONLY FIRE OUTSIDE ACTIVE GAME EVENTS.
                 elif (v['q'] != games2[k]['q']):
                     # GAME START.
                     if ((v['q'] == "P") and (games2[k]['q'] == "1")):
+                        self.log.info("Should fire start of game {0}".format(k))
                         mstr = "{0} v. {1} :: {2}".format(games2[k]['v'], games2[k]['h'], ircutils.mircColor('KICKOFF', 'green'))
                         self._post(irc, mstr)  # now post event.
                         # add event into scoredict now that we start.
@@ -472,8 +494,10 @@ class Football(callbacks.Plugin):
                         else:
                             self.log.error("checkfootball: {0} is already in scoredict".format(k))
                     # GAME GOES FINAL.
-                    elif ((v['q'] in ("4", "5")) and (games2[k]['q'] in ("F", "FO"))):
-                        mstr = "{0} :: {1}".format(self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs']), ircutils.mircColor(games2[k]['q'], 'red'))
+                    if ((v['q'] in ("4", "5")) and (games2[k]['q'] in ("F", "FO"))):
+                        self.log.info("Should fire final of game {0}".format(k))
+                        l = self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'])
+                        mstr = "{0} :: {1}".format(l, ircutils.mircColor(games2[k]['q'], 'red'))
                         # now post event.
                         self._post(irc, mstr)
                         # try and grab finalstats for game.
@@ -491,16 +515,15 @@ class Football(callbacks.Plugin):
                         else:
                             self.log.error("checkfootball: {0} is not in scoredict when game went final.")
                     # GAME GOES TO HALFTIME.
-                    elif ((v['q'] == "2") and (games2[k]['q'] == "H")):
-                        mstr = "{0} :: {1}".format(self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs']), ircutils.mircColor('HALFTIME', 'yellow'))
+                    if ((v['q'] == "2") and (games2[k]['q'] == "H")):
+                        l = self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'])
+                        mstr = "{0} :: {1}".format(l, ircutils.mircColor('HALFTIME', 'yellow'))
                         self._post(irc, mstr)  # now post event.
                     # GAME COMES OUT OF HALFTIME.
-                    elif ((v['q'] == "H") and (games2[k]['q'] == "3")):
-                        mstr = "{0} :: {1} of 3rd Qtr.".format(self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs']), ircutils.mircColor('Start', 'green'))
-                        self._post(irc, mstr)  # now post event.
-                    # GAME GOES INTO OVERTIME.
-                    elif ((v['q'] == "4") and (games2[k]['q'] == "5")):
-                        mstr = "{0} {1} {2} {3} :: {4}".format(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'], ircutils.bold("Overtime"))
+                    if ((v['q'] == "H") and (games2[k]['q'] == "3")):
+                        l = self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'])
+                        s = ircutils.mircColor('Start of 3rd qtr', 'green')
+                        mstr = "{0} :: {1}".format(l, s)
                         self._post(irc, mstr)  # now post event.
 
         # done processing active event things.
