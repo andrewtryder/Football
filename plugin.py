@@ -265,7 +265,7 @@ class Football(callbacks.Plugin):
                 sb = sorted(b['receiving'].iteritems(), key=lambda x: x[1]['yds'], reverse=True)  # leader by yards.
                 rs = "{0} YDS: {1} TD: {2}".format(sb[0][1]['name'].encode('utf-8'), sb[0][1]['yds'], sb[0][1]['tds'])
                 # team stats.
-                ts = "TO: {0} YDS: {1} TOP: {2}".format(b['team']['trnovr'], b['team']['totyds'], b['team']['top'])
+                ts = "TO: {0} YDS: {1} FD: {2} TOP: {3}".format(b['team']['trnovr'], b['team']['totyds'], b['team']['totfd'], b['team']['top'])
                 # now that we're done, append the temp dict into statlines for output.
                 statlines[base[t]['abbr']] = "{0}  {1}: {2}  {3}: {4}  {5}: {6}".format(ts, ircutils.bold('Passing'), ps, ircutils.bold('Rushing'), rs, ircutils.bold('Receiving'), rs)
             # return now.
@@ -464,7 +464,7 @@ class Football(callbacks.Plugin):
                         #self.log.info("should fire 2 minute warning: q: {0} v['k'] {1} games2[k] {2}".format(games2[k], v['k'], games2[k]['k']))
                         l = self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'])
                         ordinal = utils.str.ordinal(str(games2[k]['q']))
-                        mstr = "{0} :: {1} ({2} qtr. {3})".format(l, ircutils.bold("2 minute warning."), ordinal, games2[k]['k'])
+                        mstr = "{0} :: {1} ({2} qtr {3})".format(l, ircutils.bold("2 minute warning."), ordinal, games2[k]['k'])
                         # now post event.
                         self._post(irc, mstr)
                     # START OF 2ND/4TH QUARTER.
