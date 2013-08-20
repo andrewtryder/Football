@@ -471,7 +471,7 @@ class Football(callbacks.Plugin):
                     if (((v['q'] == "1") and (games2[k]['q'] == "2")) or ((v['q'] == "3") and (games2[k]['q'] == "4"))):
                         #self.log.info("Should fire start of 2nd or 4th qtr.")
                         l = self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'])
-                        q = "Start of {0} quarter".format(utils.str.ordinal(str(games2[k]['q'])))
+                        q = "Start of {0} qtr".format(utils.str.ordinal(str(games2[k]['q'])))
                         mstr = "{0} :: {1}".format(l, ircutils.mircColor(q, 'green'))
                         # now post event.
                         self._post(irc, mstr)
