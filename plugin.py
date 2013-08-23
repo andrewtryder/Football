@@ -274,6 +274,63 @@ class Football(callbacks.Plugin):
             self.log.error("_finalstats: GID: {0} ERROR: {1}".format(gid, e))
             return None
 
+    def bl(self, irc, msg, args, a, h):
+        """
+        .
+        """
+
+        bettingline = self._bettingline(a, h)
+        irc.reply("{0}".format(bettingline))
+
+    bl = wrap(bl, [('somethingWithoutSpaces'), ('somethingWithoutSpaces')])
+
+    def _bettingline(self, a, h):
+        """See if we can fetch some betting information about the game."""
+
+        url = 'http://livelines.betonline.com/sys/LineXML/LiveLineObjXml.asp?sport=Football&subsport=NFL'
+        html = self._httpget(url)
+        if not html:
+            self.log.error("ERROR: Could not fetch _bettingline url.")
+            return None
+        # throw the thing in a try/except block.. easier..
+        try:
+            # need full team names to compare.
+            transtable = {
+                'DEN':'Denver Broncos', 'NE':'New England Patriots', 'HOU':'Houston Texans', 'SF':'San Francisco 49ers',
+                'GB':'Green Bay Packers', 'SEA':'Seattle Seahawks', 'ATL':'Atlanta Falcons', 'NO':'New Orleans Saints',
+                'PIT':'Pittsburgh Steelers', 'BAL':'Baltimore Ravens', 'CIN':'Cincinnati Bengals', 'NYG':'New York Giants',
+                'DAL':'Dallas Cowboys', 'CHI':'Chicago Bears', 'IND':'Indianapolis Colts', 'WAS':'Washington Redskins',
+                'PHI':'Philadelphia Eagles', 'CAR':'Carolina Panthers', 'MIA':'Miami Dolphins', 'SD':'San Diego Chargers',
+                'TB':'Tampa Bay Buccaneers', 'KC':'Kansas City Chiefs', 'DET':'Detroit Lions', 'MIN':'Minnesota Vikings',
+                'STL':'St Louis Rams', 'CLE':'Cleveland Browns', 'TEN':'Tennessee Titans', 'BUF':'Buffalo Bills',
+                'ARI':'Arizona Cardinals', 'NYJ':'New York Jets', 'OAK':'Oakland Raiders', 'JAC':'Jacksonville Jaguars' }
+            # setup our container. we'll return the first.
+            odds = []
+            # now lets parse the XML.
+            tree = ElementTree.fromstring(html)
+            ev = tree.findall('event')
+            # iterate through. bo's xml is odd because they post multiple events even for the same game.
+            for e in ev:  # this is ugly but it works.
+                tms = e.findall('participant')
+                away = tms[0].find('participant_name').text
+                awayml = tms[0].find('odds/moneyline').text
+                home = tms[1].find('participant_name').text
+                homeml = tms[1].find('odds/moneyline').text
+                homespread = e.find('period/spread/spread_home').text
+                total = e.find('period/total/total_points').text
+                period = e.find('period/period_description').text
+                # due to all the entries for half lines, etc, we have to match all of these. it's disgusting but it worked. we append each "match"
+                if transtable[a] == away and transtable[h] == home and period and period == "Game" and awayml and homeml and homespread and total:
+                    odds.append({'awayml':awayml, 'homeml':homeml, 'spread':homespread, 'total':total})
+            # now, out of the foor loop, lets make sure we have something.
+            if len(odds) != 0:  # we got something so lets return.
+                return odds[0]  # return first
+            else:
+                return None
+        except Exception, e:  # something went wrong..
+            self.log.error("_bettingline :: ERROR: {0}".format(e))
+            return None
+
     def _gctosec(self, s):
         """Convert seconds of clock into an integer of seconds remaining."""
 
@@ -485,8 +542,20 @@ class Football(callbacks.Plugin):
                 elif (v['q'] != games2[k]['q']):
                     # GAME START.
                     if ((v['q'] == "P") and (games2[k]['q'] == "1")):
-                        #self.log.info("Should fire start of game {0}".format(k))
-                        mstr = "{0} v. {1} :: {2}".format(games2[k]['v'], games2[k]['h'], ircutils.mircColor('KICKOFF', 'green'))
+                        self.log.info("Should fire start of game {0}".format(k))
+                        # first, lets see if we can fetch betting information.
+                        bl = self._bettingline(v['v'], v['h'])  # away/home.
+                        if bl:  # we did get something back.
+                            bstr = "ml: {0}/{1} :: o/u: {2}".format(bl['awayml'], bl['homeml'], bl['total'])  # format betting part.
+                            ko = ircutils.mircColor('KICKOFF', 'green')  # ko part.
+                            # lets format the spread so it looks better.
+                            if not bl['spread'].startswith('-'):  # away favored.
+                                spread = "+{0}".format(bl['spread'])
+                            else:  # home favored.
+                                spread = "{0}".format(bl['spread'])
+                            mstr = "{0} v. {1}[{2}] :: {3} :: {4}".format(v['v'], v['h'], spread, bstr, ko)
+                        else:  # we did not get something back. post normal starting line.
+                            mstr = "{0} v. {1} :: {2}".format(v['v'], v['h'], ircutils.mircColor('KICKOFF', 'green'))
                         # now post event.
                         self._post(irc, mstr)
                         # add event into scoredict now that we start.
