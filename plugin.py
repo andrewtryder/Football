@@ -257,7 +257,7 @@ class Football(callbacks.Plugin):
                 # iterate over each category manually.
                 # qb stats.
                 sb = sorted(b['passing'].iteritems(), key=lambda x: x[1]['yds'], reverse=True)  # leader by yards.
-                ps = "{0} ({1}/{2}) TD: {3} INT: {4}".format(sb[0][1]['name'].encode('utf-8'), sb[0][1]['cmp'], sb[0][1]['att'], sb[0][1]['tds'], sb[0][1]['ints'])
+                ps = "{0} ({1}/{2}) TD: {3} INT: {4} YDS: {5}".format(sb[0][1]['name'].encode('utf-8'), sb[0][1]['cmp'], sb[0][1]['att'], sb[0][1]['tds'], sb[0][1]['ints'], sb[0][1]['yds'])
                 # rb stats.
                 sb = sorted(b['rushing'].iteritems(), key=lambda x: x[1]['yds'], reverse=True)  # leader by yards.
                 rs = "{0} YDS: {1} ATT: {2} TD: {3}".format(sb[0][1]['name'].encode('utf-8'), sb[0][1]['yds'], sb[0][1]['att'], sb[0][1]['tds'])
