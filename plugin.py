@@ -274,20 +274,10 @@ class Football(callbacks.Plugin):
             self.log.error("_finalstats: GID: {0} ERROR: {1}".format(gid, e))
             return None
 
-    def bl(self, irc, msg, args, a, h):
-        """
-        .
-        """
-
-        bettingline = self._bettingline(a, h)
-        irc.reply("{0}".format(bettingline))
-
-    bl = wrap(bl, [('somethingWithoutSpaces'), ('somethingWithoutSpaces')])
-
     def _bettingline(self, a, h):
         """See if we can fetch some betting information about the game."""
 
-        url = 'http://livelines.betonline.com/sys/LineXML/LiveLineObjXml.asp?sport=Football&subsport=NFL'
+        url = b64decode('aHR0cDovL2xpdmVsaW5lcy5iZXRvbmxpbmUuY29tL3N5cy9MaW5lWE1ML0xpdmVMaW5lT2JqWG1sLmFzcD9zcG9ydD1Gb290YmFsbCZzdWJzcG9ydD1ORkw=')
         html = self._httpget(url)
         if not html:
             self.log.error("ERROR: Could not fetch _bettingline url.")
@@ -309,6 +299,8 @@ class Football(callbacks.Plugin):
             # now lets parse the XML.
             tree = ElementTree.fromstring(html)
             ev = tree.findall('event')
+            # log
+            self.log.info("_bettingline: Trying to fetch odds for {0} v. {1}".format(transtable[a], transtable[h]))
             # iterate through. bo's xml is odd because they post multiple events even for the same game.
             for e in ev:  # this is ugly but it works.
                 tms = e.findall('participant')
