@@ -292,7 +292,7 @@ class Football(callbacks.Plugin):
                 'DAL':'Dallas Cowboys', 'CHI':'Chicago Bears', 'IND':'Indianapolis Colts', 'WAS':'Washington Redskins',
                 'PHI':'Philadelphia Eagles', 'CAR':'Carolina Panthers', 'MIA':'Miami Dolphins', 'SD':'San Diego Chargers',
                 'TB':'Tampa Bay Buccaneers', 'KC':'Kansas City Chiefs', 'DET':'Detroit Lions', 'MIN':'Minnesota Vikings',
-                'STL':'St Louis Rams', 'CLE':'Cleveland Browns', 'TEN':'Tennessee Titans', 'BUF':'Buffalo Bills',
+                'STL':'St. Louis Rams', 'CLE':'Cleveland Browns', 'TEN':'Tennessee Titans', 'BUF':'Buffalo Bills',
                 'ARI':'Arizona Cardinals', 'NYJ':'New York Jets', 'OAK':'Oakland Raiders', 'JAC':'Jacksonville Jaguars' }
             # setup our container. we'll return the first.
             odds = []
