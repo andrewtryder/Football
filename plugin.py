@@ -367,7 +367,7 @@ class Football(callbacks.Plugin):
         # next, make sure op is valid.
         validop = ['add', 'list', 'del']
         if op not in validop:  # test for a valid operation.
-            irc.reply("ERROR: '{0}' is an self.registryValue('checkInterval')invalid operation. It must be be one of: {1}".format(op, " | ".join([i for i in validop])))
+            irc.reply("ERROR: '{0}' is an invalid operation. It must be be one of: {1}".format(op, " | ".join([i for i in validop])))
             return
         # if we're not doing list (add or del) make sure we have the arguments.
         if (op != 'list'):
