@@ -257,17 +257,17 @@ class Football(callbacks.Plugin):
                 # iterate over each category manually.
                 # qb stats.
                 sb = sorted(b['passing'].iteritems(), key=lambda x: x[1]['yds'], reverse=True)  # leader by yards.
-                ps = "{0} ({1}/{2}) TD: {3} INT: {4} YDS: {5}".format(sb[0][1]['name'].encode('utf-8'), sb[0][1]['cmp'], sb[0][1]['att'], sb[0][1]['tds'], sb[0][1]['ints'], sb[0][1]['yds'])
+                qs = "{0} ({1}/{2}) TD: {3} INT: {4} YDS: {5}".format(sb[0][1]['name'].encode('utf-8'), sb[0][1]['cmp'], sb[0][1]['att'], sb[0][1]['tds'], sb[0][1]['ints'], sb[0][1]['yds'])
                 # rb stats.
                 sb = sorted(b['rushing'].iteritems(), key=lambda x: x[1]['yds'], reverse=True)  # leader by yards.
                 rs = "{0} YDS: {1} ATT: {2} TD: {3}".format(sb[0][1]['name'].encode('utf-8'), sb[0][1]['yds'], sb[0][1]['att'], sb[0][1]['tds'])
                 # passing stats.
                 sb = sorted(b['receiving'].iteritems(), key=lambda x: x[1]['yds'], reverse=True)  # leader by yards.
-                rs = "{0} YDS: {1} TD: {2}".format(sb[0][1]['name'].encode('utf-8'), sb[0][1]['yds'], sb[0][1]['tds'])
+                ps = "{0} YDS: {1} TD: {2}".format(sb[0][1]['name'].encode('utf-8'), sb[0][1]['yds'], sb[0][1]['tds'])
                 # team stats.
                 ts = "TO: {0} YDS: {1} FD: {2} TOP: {3}".format(b['team']['trnovr'], b['team']['totyds'], b['team']['totfd'], b['team']['top'])
                 # now that we're done, append the temp dict into statlines for output.
-                statlines[base[t]['abbr']] = "{0}  {1}: {2}  {3}: {4}  {5}: {6}".format(ts, ircutils.bold('Passing'), ps, ircutils.bold('Rushing'), rs, ircutils.bold('Receiving'), rs)
+                statlines[base[t]['abbr']] = "{0}  {1}: {2}  {3}: {4}  {5}: {6}".format(ts, ircutils.bold('Passing'), qs, ircutils.bold('Rushing'), rs, ircutils.bold('Receiving'), ps)
             # return now.
             return statlines
         except Exception, e:  # something went wrong above.
