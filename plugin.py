@@ -14,6 +14,7 @@ from base64 import b64decode  # b64.
 import datetime  # utc time.
 import pytz  # utc time.
 from calendar import timegm  # utc time.
+import os
 # extra supybot libs.
 import supybot.conf as conf
 import supybot.ircmsgs as ircmsgs
@@ -50,7 +51,9 @@ class Football(callbacks.Plugin):
         # now setup the empty channels dict.
         self.channels = {}
         self._loadpickle()  # load saved data into channels.
-        # now setup the cron.
+        # Odds XML cache.
+        self.CACHEFILE = conf.supybot.directories.data.dirize(self.name()+".xml")
+        # now setup the regular cron.
         def checkfootballcron():
             self.checkfootball(irc)
         try:
@@ -63,7 +66,7 @@ class Football(callbacks.Plugin):
             schedule.addPeriodicEvent(checkfootballcron, 30, now=False, name='checkfootball')
 
     def die(self):
-        try:
+        try:  # remove scores cron.
             schedule.removeEvent('checkfootball')
         except KeyError:
             pass
@@ -155,6 +158,37 @@ class Football(callbacks.Plugin):
                 irc.queueMsg(ircmsgs.privmsg(postchan, message))
             except Exception as e:
                 self.log.error("ERROR: Could not send {0} to {1}. {2}".format(message, postchan, e))
+
+    #################
+    # ODDS XML CRON #
+    #################
+
+    def checkfootballxml(self):
+        """Function to grab and save the XML."""
+
+        #self.log.info("CacheXML: Running...")
+        if ((not os.path.isfile(self.CACHEFILE)) or (os.path.getsize(self.CACHEFILE) < 1)
+            or (time.time() - os.stat(self.CACHEFILE).st_mtime > 14400)): # under 1 byte, 20 minutes old.
+            self.log.info("CacheXML: File does not exist, is too small or old. Fetching.")
+            try:
+                url = b64decode('aHR0cDovL2xpdmVsaW5lcy5iZXRvbmxpbmUuY29tL3N5cy9MaW5lWE1ML0xpdmVMaW5lT2JqWG1sLmFzcD9zcG9ydD1Gb290YmFsbCZzdWJzcG9ydD1ORkw=')
+                response = utils.web.getUrl(url)
+                self.log.info("CacheXML: Fetched XML URL")
+            except utils.web.Error as e:
+                self.log.error("CacheXML: Failed to open: {0} ({1})".format(url, e))
+                return
+            # we have response object. test and verify the XML.
+            try:
+                ElementTree.fromstring(response)
+            except ElementTree.ParseError, e: # if there is an exception, report and return.
+                self.log.error("CacheXML: ERROR PARSING received XML: {0}".format(e))
+                return
+            # if XML verifies, write to cachefile.
+            with open(self.CACHEFILE, 'w') as cache:
+                cache.writelines(response)
+                self.log.info("CacheXML: Wrote XML to cache.")
+        else:
+            self.log.info("CacheXML: XML file is good.")
 
     ###################
     # GAMES INTERNALS #
@@ -274,15 +308,19 @@ class Football(callbacks.Plugin):
             self.log.error("_finalstats: GID: {0} ERROR: {1}".format(gid, e))
             return None
 
+    def bl(self, irc, msg, args, a, h):
+        """
+        .
+        """
+
+        resp = self._bettingline(a, h)
+        irc.reply("RESP: {0}".format(resp))
+
+    bl = wrap(bl, [('somethingWithoutSpaces'), ('somethingWithoutSpaces')])
+
     def _bettingline(self, a, h):
         """See if we can fetch some betting information about the game."""
 
-        url = b64decode('aHR0cDovL2xpdmVsaW5lcy5iZXRvbmxpbmUuY29tL3N5cy9MaW5lWE1ML0xpdmVMaW5lT2JqWG1sLmFzcD9zcG9ydD1Gb290YmFsbCZzdWJzcG9ydD1ORkw=')
-        html = self._httpget(url)
-        if not html:
-            self.log.error("ERROR: Could not fetch _bettingline url.")
-            return None
-        # throw the thing in a try/except block.. easier..
         try:
             # need full team names to compare.
             transtable = {
@@ -293,11 +331,12 @@ class Football(callbacks.Plugin):
                 'PHI':'Philadelphia Eagles', 'CAR':'Carolina Panthers', 'MIA':'Miami Dolphins', 'SD':'San Diego Chargers',
                 'TB':'Tampa Bay Buccaneers', 'KC':'Kansas City Chiefs', 'DET':'Detroit Lions', 'MIN':'Minnesota Vikings',
                 'STL':'St. Louis Rams', 'CLE':'Cleveland Browns', 'TEN':'Tennessee Titans', 'BUF':'Buffalo Bills',
-                'ARI':'Arizona Cardinals', 'NYJ':'New York Jets', 'OAK':'Oakland Raiders', 'JAC':'Jacksonville Jaguars' }
+                'ARI':'Arizona Cardinals', 'NYJ':'New York Jets', 'OAK':'Oakland Raiders', 'JAC':'Jacksonville Jaguars',
+                'JAX':'Jacksonville Jaguars'}
             # setup our container. we'll return the first.
             odds = []
             # now lets parse the XML.
-            tree = ElementTree.fromstring(html)
+            tree = ElementTree.parse(self.CACHEFILE)
             ev = tree.findall('event')
             # log
             self.log.info("_bettingline: Trying to fetch odds for {0} v. {1}".format(transtable[a], transtable[h]))
@@ -454,6 +493,8 @@ class Football(callbacks.Plugin):
         """
         Main loop.
         """
+
+        self.log.info("Starting..")
         # before anything, check if nextcheck is set and is in the future.
         if self.nextcheck:  # set
             if self.nextcheck > self._utcnow():  # in the future so we backoff.
@@ -477,7 +518,9 @@ class Football(callbacks.Plugin):
         if not games2:  # something went wrong so we bail.
             self.log.error("checkfootball: fetching games2 failed.")
             return
-
+        # last, run checkfootballxml.
+        self.checkfootballxml()
+        self.log.info("Main handler.")
         # main handler for event changes.
         # we go through each event, compare, and post according to the changes.
         for (k, v) in games1.items():  # iterate over games.
