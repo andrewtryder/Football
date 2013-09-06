@@ -168,7 +168,7 @@ class Football(callbacks.Plugin):
 
         #self.log.info("CacheXML: Running...")
         if ((not os.path.isfile(self.CACHEFILE)) or (os.path.getsize(self.CACHEFILE) < 1)
-            or (time.time() - os.stat(self.CACHEFILE).st_mtime > 14400)): # under 1 byte, 20 minutes old.
+            or (self._utcnow() - os.stat(self.CACHEFILE).st_mtime > 14400)): # under 1 byte, 20 minutes old.
             self.log.info("CacheXML: File does not exist, is too small or old. Fetching.")
             try:
                 url = b64decode('aHR0cDovL2xpdmVsaW5lcy5iZXRvbmxpbmUuY29tL3N5cy9MaW5lWE1ML0xpdmVMaW5lT2JqWG1sLmFzcD9zcG9ydD1Gb290YmFsbCZzdWJzcG9ydD1ORkw=')
@@ -481,10 +481,11 @@ class Football(callbacks.Plugin):
         FOOTBALL Scores.
         """
 
+        self.checkfootballxml()
         irc.reply("SCOREDICT: {0}".format(self.scoredict))
-
         for (k, v) in self.games.items():
             irc.reply("{0} :: {1}".format(k, v))
+
 
     footballscores = wrap(footballscores)
 
@@ -495,13 +496,15 @@ class Football(callbacks.Plugin):
         """
 
         self.log.info("Starting..")
+        # first, run our XML cron.
+        #self.checkfootballxml()
         # before anything, check if nextcheck is set and is in the future.
         if self.nextcheck:  # set
             if self.nextcheck > self._utcnow():  # in the future so we backoff.
-                #self.log.info("checkfootball: nextcheck is in the future. {0} from now.".format(self.nextcheck-self._utcnow()))
+                self.log.info("checkfootball: nextcheck is in the future. {0} from now.".format(self.nextcheck-self._utcnow()))
                 return
             else:  # in the past so lets reset it. this means that we've reached the time where firstgametime should begin.
-                #self.log.info("checkfootball: nextcheck has passed. we are resetting and continuing normal operations.")
+                self.log.info("checkfootball: nextcheck has passed. we are resetting and continuing normal operations.")
                 self.nextcheck = None
         # we must have initial games. bail if not.
         if not self.games:
@@ -518,8 +521,6 @@ class Football(callbacks.Plugin):
         if not games2:  # something went wrong so we bail.
             self.log.error("checkfootball: fetching games2 failed.")
             return
-        # last, run checkfootballxml.
-        self.checkfootballxml()
         self.log.info("Main handler.")
         # main handler for event changes.
         # we go through each event, compare, and post according to the changes.
@@ -654,8 +655,10 @@ class Football(callbacks.Plugin):
                     fgtdiff = firstgametime-utcnow  # get the diff.
                     if (fgtdiff < 3601):  # it's under an hour old. carry on.
                         self.nextcheck = None
+                        self.log.info("checkfootball: first gametime is in the past but under 1hr so we resume normal ops.")
                     else:  # older than an hour. lets holdoff for 5m.
                         self.nextcheck = utcnow+300
+                        self.log.info("checkfootball: first gametime is in the past over an hour so we hold off for 5m.")
             else:  # we're here if there are NO active games and NO future games. I assume all games are final then.
                 self.log.info("checkfootball: no active games and no future games. holding off for an hour.")
                 self.nextcheck = utcnow+3600  # hold off for one hour.
