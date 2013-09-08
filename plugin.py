@@ -131,7 +131,7 @@ class Football(callbacks.Plugin):
         local = pytz.timezone("US/Eastern")  # all of our "times" are in Eastern.
         local_dt = local.localize(naive, is_dst=None)
         utc_dt = local_dt.astimezone(pytz.UTC) # convert from utc->local(tzstring).
-        rtrstr = timegm(utc_dt.utctimetuple())  # return epoch seconds/
+        rtrstr = timegm(utc_dt.utctimetuple())  # return epoch seconds
         return rtrstr
 
     def _utcnow(self):
@@ -155,9 +155,12 @@ class Football(callbacks.Plugin):
         # iterate over each and post.
         for postchan in postchans:
             try:
+                # check to see if we should prefix output.
+                if self.registryValue('prefix', postchan):  # we do so lets prefix and output.
+                    message = "{0}{1}".format(self.registryValue('prefixString', postchan), message)
                 irc.queueMsg(ircmsgs.privmsg(postchan, message))
             except Exception as e:
-                self.log.error("ERROR: Could not send {0} to {1}. {2}".format(message, postchan, e))
+                self.log.error("ERROR: _post :: Could not send {0} to {1}. {2}".format(message, postchan, e))
 
     #################
     # ODDS XML CRON #

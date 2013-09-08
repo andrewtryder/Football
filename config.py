@@ -26,8 +26,8 @@ def configure(advanced):
 
 Football = conf.registerPlugin('Football')
 # This is where your configuration variables (if any) should go.  For example:
-# conf.registerGlobalValue(Football, 'someConfigVariableName',
-#     registry.Boolean(False, _("""Help for someConfigVariableName.""")))
+conf.registerChannelValue(Football, 'prefix', registry.Boolean(False, """Should we prefix output with the string"""))
+conf.registerChannelValue(Football, 'prefixString', registry.String("NFL: ", """Prefix String."""))
 
 
 # vim:set shiftwidth=4 tabstop=4 expandtab textwidth=79:
