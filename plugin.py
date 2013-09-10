@@ -311,16 +311,6 @@ class Football(callbacks.Plugin):
             self.log.error("_finalstats: GID: {0} ERROR: {1}".format(gid, e))
             return None
 
-    def bl(self, irc, msg, args, a, h):
-        """
-        .
-        """
-
-        resp = self._bettingline(a, h)
-        irc.reply("RESP: {0}".format(resp))
-
-    bl = wrap(bl, [('somethingWithoutSpaces'), ('somethingWithoutSpaces')])
-
     def _bettingline(self, a, h):
         """See if we can fetch some betting information about the game."""
 
@@ -359,10 +349,10 @@ class Football(callbacks.Plugin):
             # now, out of the foor loop, lets make sure we have something.
             if len(odds) != 0:  # we got something so lets return.
                 return odds[0]  # return first
-            else:
+            else:  # something broke so we return none.
                 return None
         except Exception, e:  # something went wrong..
-            self.log.error("_bettingline :: ERROR: {0}".format(e))
+            self.log.error("_bettingline :: ERROR fetching odds for {0} v. 1{} :: {2}".format(a, h, e))
             return None
 
     def _gctosec(self, s):
@@ -500,7 +490,7 @@ class Football(callbacks.Plugin):
 
         self.log.info("Starting..")
         # first, run our XML cron.
-        #self.checkfootballxml()
+        self.checkfootballxml()
         # before anything, check if nextcheck is set and is in the future.
         if self.nextcheck:  # set
             if self.nextcheck > self._utcnow():  # in the future so we backoff.
@@ -524,7 +514,7 @@ class Football(callbacks.Plugin):
         if not games2:  # something went wrong so we bail.
             self.log.error("checkfootball: fetching games2 failed.")
             return
-        self.log.info("Main handler.")
+        # self.log.info("Main handler.")
         # main handler for event changes.
         # we go through each event, compare, and post according to the changes.
         for (k, v) in games1.items():  # iterate over games.
@@ -535,10 +525,11 @@ class Football(callbacks.Plugin):
                     if k not in self.scoredict:
                         self.scoredict[k] = {}
                     ## SCORING EVENT.
-                    scev = self._scoreevent(k)
-                    if scev:
+                    # what we do is poll each json page for each active game. it's lazy but works.
+                    scev = self._scoreevent(k)  # returns None unless there is a scoring event.
+                    if scev:  # we got one back instead of None.
                         if scev['id'] not in self.scoredict[k]:  # event is unique.
-                            #self.log.info("Should fire scoring event in {0}".format(k))
+                            self.log.info("Should fire scoring event in {0}".format(k))
                             l = self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'])  # bold leader
                             ordinal = utils.str.ordinal(str(games2[k]['q']))  # ordinal for time/quarter.
                             mstr = "{0} :: {1} :: {2} :: {3} ({4} {5})".format(l, scev['team'], scev['type'], scev['desc'], ordinal, games2[k]['k'])
@@ -547,7 +538,7 @@ class Football(callbacks.Plugin):
                             self._post(irc, mstr)
                     # TEAM ENTERS REDZONE
                     if ((v['rz'] == "0") and (games2[k]['rz'] == "1")):
-                        #self.log.info("Should fire redzone event.")
+                        self.log.info("Should fire redzone event in {0}".format(k))
                         # must have pos team. we do this as a sanity check because w/o the team it's pointless.
                         if 'p' in games2[k]:
                             l = self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'])
@@ -557,7 +548,7 @@ class Football(callbacks.Plugin):
                             self._post(irc, mstr)
                     # 2 MINUTE WARNING.
                     if ((games2[k]['q'] in ("2", "4")) and (self._gctosec(v['k']) > 120) and (self._gctosec(games2[k]['k']) <= 120)):
-                        #self.log.info("should fire 2 minute warning: q: {0} v['k'] {1} games2[k] {2}".format(games2[k], v['k'], games2[k]['k']))
+                        self.log.info("should fire 2 minute warning in {0}".format(k))
                         l = self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'])
                         ordinal = utils.str.ordinal(str(games2[k]['q']))
                         mstr = "{0} :: {1} ({2} qtr {3})".format(l, ircutils.bold("2 minute warning."), ordinal, games2[k]['k'])
@@ -565,7 +556,7 @@ class Football(callbacks.Plugin):
                         self._post(irc, mstr)
                     # START OF 2ND/4TH QUARTER.
                     if (((v['q'] == "1") and (games2[k]['q'] == "2")) or ((v['q'] == "3") and (games2[k]['q'] == "4"))):
-                        #self.log.info("Should fire start of 2nd or 4th qtr.")
+                        self.log.info("Should fire start of 2nd or 4th qtr in {0}".format(k))
                         l = self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'])
                         q = "Start of {0} qtr".format(utils.str.ordinal(str(games2[k]['q'])))
                         mstr = "{0} :: {1}".format(l, ircutils.mircColor(q, 'green'))
@@ -573,7 +564,7 @@ class Football(callbacks.Plugin):
                         self._post(irc, mstr)
                     # GAME GOES INTO OVERTIME.
                     if ((v['q'] == "4") and (games2[k]['q'] == "5")):
-                        #self.log.info("Should fire overtime.")
+                        self.log.info("Should fire overtime in {0}".format(k))
                         mstr = "{0} {1} {2} {3} :: {4}".format(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'], ircutils.bold("Overtime"))
                         # now post event.
                         self._post(irc, mstr)
@@ -601,10 +592,10 @@ class Football(callbacks.Plugin):
                         if k not in self.scoredict:
                             self.scoredict[k] = {}
                         else:
-                            self.log.error("checkfootball: {0} is already in scoredict".format(k))
+                            self.log.error("checkfootball: GAME START :: {0} is already in scoredict".format(k))
                     # GAME GOES FINAL.
                     if ((v['q'] in ("4", "5")) and (games2[k]['q'] in ("F", "FO"))):
-                        #self.log.info("Should fire final of game {0}".format(k))
+                        self.log.info("Should fire final of game {0}".format(k))
                         l = self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'])
                         mstr = "{0} :: {1}".format(l, ircutils.mircColor(games2[k]['q'], 'red'))
                         # now post event.
