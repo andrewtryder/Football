@@ -173,12 +173,11 @@ class Football(callbacks.Plugin):
         if ((not os.path.isfile(self.CACHEFILE)) or (os.path.getsize(self.CACHEFILE) < 1)
             or (self._utcnow() - os.stat(self.CACHEFILE).st_mtime > 14400)): # under 1 byte, 20 minutes old.
             self.log.info("CacheXML: File does not exist, is too small or old. Fetching.")
-            try:
-                url = b64decode('aHR0cDovL2xpdmVsaW5lcy5iZXRvbmxpbmUuY29tL3N5cy9MaW5lWE1ML0xpdmVMaW5lT2JqWG1sLmFzcD9zcG9ydD1Gb290YmFsbCZzdWJzcG9ydD1ORkw=')
-                response = utils.web.getUrl(url)
+            # setup http fetch.
+            url = b64decode('aHR0cDovL2xpdmVsaW5lcy5iZXRvbmxpbmUuY29tL3N5cy9MaW5lWE1ML0xpdmVMaW5lT2JqWG1sLmFzcD9zcG9ydD1Gb290YmFsbCZzdWJzcG9ydD1ORkw=')
+            html = self._httpget(url)
+            if not html:
                 self.log.info("CacheXML: Fetched XML URL")
-            except utils.web.Error as e:
-                self.log.error("CacheXML: Failed to open: {0} ({1})".format(url, e))
                 return
             # we have response object. test and verify the XML.
             try:
@@ -188,10 +187,8 @@ class Football(callbacks.Plugin):
                 return
             # if XML verifies, write to cachefile.
             with open(self.CACHEFILE, 'w') as cache:
-                cache.writelines(response)
+                cache.writelines(html)
                 self.log.info("CacheXML: Wrote XML to cache.")
-        else:
-            self.log.info("CacheXML: XML file is good.")
 
     ###################
     # GAMES INTERNALS #
