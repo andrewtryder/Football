@@ -172,23 +172,19 @@ class Football(callbacks.Plugin):
         #self.log.info("CacheXML: Running...")
         if ((not os.path.isfile(self.CACHEFILE)) or (os.path.getsize(self.CACHEFILE) < 1)
             or (self._utcnow() - os.stat(self.CACHEFILE).st_mtime > 14400)): # under 1 byte, 20 minutes old.
-            self.log.info("CacheXML: File does not exist, is too small or old. Fetching.")
+            self.log.info("checkfootballxml: File does not exist, is too small or old. Fetching.")
             # setup http fetch.
             url = b64decode('aHR0cDovL2xpdmVsaW5lcy5iZXRvbmxpbmUuY29tL3N5cy9MaW5lWE1ML0xpdmVMaW5lT2JqWG1sLmFzcD9zcG9ydD1Gb290YmFsbCZzdWJzcG9ydD1ORkw=')
             html = self._httpget(url)
             if not html:
-                self.log.info("CacheXML: Fetched XML URL")
+                self.log.error("checkfootballxml: ERROR Fetching XML url.")
                 return
-            # we have response object. test and verify the XML.
-            try:
-                ElementTree.fromstring(response)
-            except ElementTree.ParseError, e: # if there is an exception, report and return.
-                self.log.error("CacheXML: ERROR PARSING received XML: {0}".format(e))
-                return
-            # if XML verifies, write to cachefile.
+            else:
+                self.log.info("checkfootballxml: Fetched XML URL")
+            # write XML to cache.
             with open(self.CACHEFILE, 'w') as cache:
                 cache.writelines(html)
-                self.log.info("CacheXML: Wrote XML to cache.")
+                self.log.info("checkfootballxml: Wrote XML to cache.")
 
     ###################
     # GAMES INTERNALS #
@@ -326,7 +322,12 @@ class Football(callbacks.Plugin):
             # setup our container. we'll return the first.
             odds = []
             # now lets parse the XML.
-            tree = ElementTree.parse(self.CACHEFILE)
+            try:
+                tree = ElementTree.parse(self.CACHEFILE)
+            except Exception, e:
+                self.log.error("_bettingline :: ERROR parsing XML file :: {0}".format(e))
+                return None
+            # find the events.
             ev = tree.findall('event')
             # log
             self.log.info("_bettingline: Trying to fetch odds for {0} v. {1}".format(transtable[a], transtable[h]))
