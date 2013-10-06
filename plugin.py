@@ -659,11 +659,11 @@ class Football(callbacks.Plugin):
 
         # BEFORE WE'RE DONE, CHECK FOR BIG PLAYS.
         if len(self.bps) != 0:  # we have events.
-            self.log.info("We have {0} items in self.bps".format(len(self.bps)))
+            #self.log.info("We have {0} items in self.bps".format(len(self.bps)))
             for f, b in self.bps.items():  # iterate over the events. f = eventid b = dict of bps item.
-                self.log.info("Processing {0} in self.bps".format(f))
+                #self.log.info("Processing {0} in self.bps".format(f))
                 if f not in self.bpsdupe:  # make sure we have NOT printed this before.
-                    self.log.info("{0} is not in self.bpsdupe so I should try and print it.".format(f))
+                    #self.log.info("{0} is not in self.bpsdupe so I should try and print it.".format(f))
                     # self.bps[bpsid] = {'eid': eid, 'team': team, 'play': play}
                     q = b['eid']  # b['eid'] will mate up with k's in games1/games2.
                     l = self._boldleader(games2[q]['v'], games2[q]['vs'], games2[q]['h'], games2[q]['hs'])  # create initial string.
