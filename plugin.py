@@ -58,7 +58,12 @@ class Football(callbacks.Plugin):
             self.games = self._fetchgames()
         # now setup the regular cron.
         def checkfootballcron():
-            self.checkfootball(irc)
+            try:
+                self.checkfootball(irc)
+            except Exception, e:  # something broke. The plugin will stop itself from reporting.
+                self.log.error("cron: ERROR :: {0}".format(e))
+                self.nextcheck = self._utcnow()+72000  # add some major delay so the plugin does not spam.
+        # now setup the schedule part of the cron.
         try:
             schedule.addPeriodicEvent(checkfootballcron, 30, now=False, name='checkfootball')
         except AssertionError:
@@ -493,24 +498,6 @@ class Football(callbacks.Plugin):
 
     footballoff = wrap(footballoff, [('channel')])
 
-    def footballscores(self, irc, msg, args):
-        """
-        FOOTBALL Scores.
-        """
-
-        if len(self.bps) == 0:
-            irc.reply("Nothing in self.bps")
-        else:
-            for (i, x) in self.bps.items():
-                irc.reply("{0} :: {1}".format(i, x))
-
-        if len(self.bpsdupe) == 0:
-            irc.reply("Nothing in self.bpsdupe")
-        else:
-            irc.reply("{0}".format(self.bpsdupe))
-
-    footballscores = wrap(footballscores)
-
     #def checkfootball(self, irc, msg, args):
     def checkfootball(self, irc):
         """
@@ -589,7 +576,12 @@ class Football(callbacks.Plugin):
                     if ((v['q'] in ("4", "5")) and (games2[k]['q'] in ("F", "FO"))):
                         self.log.info("Should fire final of game {0}".format(k))
                         l = self._boldleader(games2[k]['v'], games2[k]['vs'], games2[k]['h'], games2[k]['hs'])
-                        mstr = "{0} :: {1}".format(l, ircutils.mircColor(games2[k]['q'], 'red'))
+                        # if we "final" overtime, it is FO, which looks ugly. A small fix.
+                        if games2[k]['q'] == "FO":
+                            fstr = "F/OT"
+                        else:  # regular "F" for final.
+                            fstr = "F"
+                        mstr = "{0} :: {1}".format(l, ircutils.mircColor(fstr, 'red'))
                         # now post event.
                         self._post(irc, mstr)
                         # try and grab finalstats for game.
