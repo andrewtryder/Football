@@ -6,12 +6,13 @@
 ###
 
 from supybot.test import *
+from supybot.commands import *
 
-class FootballTestCase(PluginTestCase):
+class FootballTestCase(ChannelPluginTestCase):
     plugins = ('Football',)
 
     def testFootball(self):
-        self.assertResponse('footballchannel add #test', "ERROR: '#test' is not a valid channel. You must add a channel that we are in.") #, 'I have added SEC into #test')
-        self.assertResponse('footballchannel del #test', "ERROR: '#test' is not a valid channel. You must add a channel that we are in.") #, 'I have added SEC into #test')
+        self.assertResponse('footballchannel add #test', "I have enabled FOOTBALL status updates on #test") #, 'I have added SEC into #test')
+        self.assertResponse('footballchannel del #test', "I have successfully removed #test") #, 'I have added SEC into #test')
 
 # vim:set shiftwidth=4 tabstop=4 expandtab textwidth=79:
